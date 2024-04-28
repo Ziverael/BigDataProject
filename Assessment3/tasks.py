@@ -42,11 +42,27 @@ Executing task3 for 1,000th 50 digits
     Function: triv1_mp Total execution time: 0.0572 sec
     Function: triv2_mp Total execution time: 0.0602 sec
     Function: mapreduce_mp Total execution time: 0.0880 sec
+Executing task3 for 10,000th 50 digits
+    Function: triv_seq1 Total execution time: 1.4631 sec
+    Function: triv_seq2 Total execution time: 1.6454 sec
+    Function: mapreduce_seq Total execution time: 1.9451 sec
+    Function: triv1_mp Total execution time: 0.3750 sec
+    Function: triv2_mp Total execution time: 0.4014 sec
+    Function: mapreduce_mp Total execution time: 0.5371 sec
+Executing task3 for 100,000th 50 digits
+    Function: triv_seq1 Total execution time: 17.6244 sec
+    Function: triv_seq2 Total execution time: 19.8957 sec
+    Function: mapreduce_seq Total execution time: 21.7431 sec
+    Function: triv1_mp Total execution time: 4.3950 sec
+    Function: triv2_mp Total execution time: 4.6099 sec
+    Function: mapreduce_mp Total execution time: 5.7855 sec
 Executing task3 for 1,000,000th 50 digits
-    Function: triv_seq1 Total execution time: 194.1920 sec
-    Function: triv_seq2 Total execution time: 221.8192 sec 
-    
-
+    Function: triv_seq1 Total execution time: 197.4432 sec
+    Function: triv_seq2 Total execution time: 210.8573 sec
+    Function: mapreduce_seq Total execution time: 224.0700 sec
+    Function: triv1_mp Total execution time: 49.6711 sec
+    Function: triv2_mp Total execution time: 53.4653 sec
+    Function: mapreduce_mp Total execution time: 63.5715 sec
 Executing task4 for matrices shaped (200, 400) x (400, 300)
     Function: triv_seq Total execution time: 0.0171 sec
     Function: mapreduce_seq Total execution time: 83.6241 sec
@@ -327,8 +343,10 @@ class Problem2:
             # res = pl.map_async(partial(Task2.triv_b_fun, dict_ = counts), split_books)
             res = pl.map_async(Task2.triv_b_fun, split_books)
             res = res.get()
-        result = reduce(Task2.triv_b_fun2, res)
-        return result
+        res[0] = {k:[v] for k, v in res[0].items()}
+        result = reduce(Task2.triv_b_reducer1, res)
+        result = map(Task2.triv_b_reducer2, result.items())
+        return {k:v for k, v in [*result]}
 
     @timeit
     def mapreduce_b_seq(self):
@@ -778,47 +796,46 @@ class Problem3:
 
 
     
-#Task1
-#Test accuracy solution 
+# #Task1
+# #Test accuracy solution 
 # k,l = 20000, 20000
-k,l = 5, 3
-min_, max_ = 5, 200
-# k,l = 200, 4
-m = np.random.rand(k, l) * 500
-# m = np.random.rand(k, l) * 1000 
-n = np.random.rand(l, k) * 1000
-p1 = Problem1(m, (min_, max_))
-# print(p1.triv1_seq())
-# print(p1.triv2_seq())
-# print(p1.triv2_mp())
-# print(p1.triv1_mp())
-# print(p1.mapreduce_seq())
-# print(p1.mapreduce_mp())
+# k,l = 2000, 2000
+# # k,l = 5, 3
+# min_, max_ = 5, 200
+# # k,l = 200, 4
+# m = np.random.rand(k, l) * 500
+# # m = np.random.rand(k, l) * 1000 
+# n = np.random.rand(l, k) * 1000
+# p1 = Problem1(m, (min_, max_))
+# x = p1.triv1_seq()
+# print(x)
+# print(p1.triv2_seq() == x)
+# print(p1.triv2_mp() == x)
+# print(p1.triv1_mp() == x)
+# print(p1.mapreduce_seq() == x)
+# print(p1.mapreduce_mp() == x)
 
-#Task2
+# #Task2
 # print("Task 2")
 # p2 = Problem2(f'{DATA_DIR}/Guthenberg')
-# print(p2.triv_a_seq())
-# print(p2.triv_a_mp())
-# print(p2.mapreduce_a_seq())
-# print(p2.mapreduce_a_mp())
+# x = p2.triv_a_seq()
+# print(x)
+# print(p2.triv_a_mp() == x)
+# print(p2.mapreduce_a_seq() == x)
+# print(p2.mapreduce_a_mp() == x)
 
-# print(p2.triv_b_seq())
-# print(p2.triv_b_mp())
-
-# x = p2.triv_b_seq()
+x = p2.triv_b_seq()
+# print(list(x.items())[:5])
 # print(x == p2.triv_b_mp())
 # print(x == p2.mapreduce_b_seq())
-# print(x == p2.mapreduce_b_mp())
+print(x == p2.mapreduce_b_mp())
 
 
 print("Task 3")
-p3 = Problem3(int(1e3), 50)
-# p3 = Problem3(int(1e3), 4)
+p3 = Problem3(int(1e6), 50)
 x = p3.triv_seq1()
 print(x)
 print(p3.triv_seq2() == x)
-# print(p3.triv_seq4())
 print(p3.mapreduce_seq() == x)
 print(p3.mapreduce_mp() == x)
 print(p3.triv2_mp() == x)
@@ -833,20 +850,9 @@ k,l,i = 200, 400, 300
 m = np.random.randint(-4, 200,(k, l))
 n = np.random.randint(-4, 200, (l, i))
 
-# p4 = Problem4(m, n)
-# x = p4.triv_seq()
-# print((Problem4.arr_from_dict(p4.mapreduce_seq()) == x).all())
-# print((Problem4.arr_from_dict(p4.mapreduce_seq2()) == x).all())
-# print((Problem4.arr_from_dict(p4.mapreduce_mp()) == x).all())
+p4 = Problem4(m, n)
+x = p4.triv_seq()
+print((Problem4.arr_from_dict(p4.mapreduce_seq()) == x).all())
+print((Problem4.arr_from_dict(p4.mapreduce_seq2()) == x).all())
+print((Problem4.arr_from_dict(p4.mapreduce_mp()) == x).all())
 
-
-#   // Start at digit d and compute n digits
-#   return function piBBP(d, n) {
-#     // Seems to be the convention for including the leading 3
-#     d -= 1;
-#     // Shift n digits to the left of the radix point to obtain our final
-#     // result as a integer
-#     return Math.floor(
-#       16 ** n * mod(4 * S(1, d) - 2 * S(4, d) - S(5, d) - S(6, d), 1)
-#     );
-#   };

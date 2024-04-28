@@ -91,7 +91,21 @@ class Task2:
             text = re.sub(r'[^a-zA-Z]+', ' ', book_text)
             text = text.upper()
             tokens = [txt for txt in text.split(" ") if txt != ""]
-            [Task2.add(item) for item in tokens]
+            [Task2.add_to_dict(count, item) for item in tokens]
+        return count
+    
+    @staticmethod
+    def triv_b_reducer1(dict1, dict2):
+        dict2 = {k:[v] for k, v in dict2.items()}
+        d = defaultdict(list, dict1)
+        for k, v in dict2.items():
+            d[k].extend(v)
+        return d
+    
+    def triv_b_reducer2(kv):
+        key_, val = kv
+        return (key_, sum(val))
+        
     
 
 class Task4:
