@@ -35,6 +35,18 @@ Executing task2 for 303 books
     Function: mapreduce_b_seq Total execution time: 37.8650 sec
     Function: mapreduce_b_mp Total execution time: 4.7699 sec
 
+Executing task3 for 1,000th 50 digits
+    Function: triv_seq1 Total execution time: 0.1660 sec
+    Function: triv_seq2 Total execution time: 0.1707 sec
+    Function: mapreduce_seq Total execution time: 0.2181 sec
+    Function: triv1_mp Total execution time: 0.0572 sec
+    Function: triv2_mp Total execution time: 0.0602 sec
+    Function: mapreduce_mp Total execution time: 0.0880 sec
+Executing task3 for 1,000,000th 50 digits
+    Function: triv_seq1 Total execution time: 194.1920 sec
+    Function: triv_seq2 Total execution time: 221.8192 sec 
+    
+
 Executing task4 for matrices shaped (200, 400) x (400, 300)
     Function: triv_seq Total execution time: 0.0171 sec
     Function: mapreduce_seq Total execution time: 83.6241 sec
@@ -617,24 +629,155 @@ class Problem4:
         
 
 class Problem3:
-    def __init__(self, n, d):
+    @staticmethod
+    def split_list2chunks(lst):
+        #Set batch size and no. of batches
+        l = len(lst)
+        batches = int(l * .125)
+        batches = batches if batches else 1
+        batches_size = int(l / batches)
+        #Spilt data to batches
+        chunks = []
+        for idx in range(batches - 1):
+            chunks.append(lst[batches_size * idx : (idx + 1) * batches_size])
+        chunks.append(lst[batches_size * (batches - 1) : ])
+        return chunks
+
+    def __init__(self, d, n, eps = 1000):
+        """
+        n   [int]   number of digits to compute
+        d   [int]   starting digit
+        """
         self.n = n
         self.d = d
+        self.eps = eps
     
-    @staticmethod
-    def triv_seq(self):
-        getcontext().prec = self.d
-        return sum(
-            1/ Decimal(16)**k * 
-            (Decimal(4)/(8*k+1) - 
-            Decimal(2)/(8*k+4) - 
-            Decimal(1)/(8*k+5) -
-            Decimal(1)/(8*k+6)) for k in range (self.d))
-        from decimal import Decimal
+    def _pi_basic_(self, digits):
+        def sj(digs, j):
+            total = 0.0
+            
+            for idx in range(digs + self.eps):
+                k = 8 * idx + j
+                term = pow(16, digs - idx, k) if idx < digs else pow(16, digs - idx)
+                total += term / k
+            return total
+        digits_ = digits - 1
+        res = (
+            4 * sj(digits_, 1) -
+            2 * sj(digits_, 4) -
+            sj(digits_, 5) -
+            sj(digits_, 6)
+        ) % 1
+        return "%x" % int(res * 16)
+
+    @timeit
+    def triv_seq1(self):
+        return "".join(
+            self._pi_basic_(i) for i in range(self.d , self.d + self.n))
+
+    @timeit
+    def triv1_mp(self):
+        vals = range(self.d, self.d + self.n)
+        with Pool(processes = 8) as pl:
+            res = pl.map_async(partial(Task3.pi_basic1, eps = self.eps), vals)
+            res = res.get()
+        return "".join(res)
+
+    def _pi_basic2_(self, digits):
+        def sj(j, d):
+            series_1 = (pow(16, d - k, 8 * k + j) / (8 * k + j) for k in range(d + 1))
+            series_1 = reduce(lambda x, y: (x + y) % 1, series_1)
+            series_2 = sum(pow(16, d - k) / (8 * k + j) for k in range(d + 1, d + 2 + self.eps))
+            
+            return series_1 + series_2
+        digits_ = digits - 1
+        res = (
+            4 * sj(1, digits_) -
+            2 * sj(4, digits_) -
+            sj(5, digits_) -
+            sj(6, digits_)
+        ) % 1
+        return "%x" % int(res * 16)
+
+    @timeit    
+    def triv_seq2(self):
+        return "".join(
+            self._pi_basic2_(i) for i in range(self.d , self.d + self.n))
+    
+    @timeit
+    def triv2_mp(self):
+        vals = range(self.d, self.d + self.n)
+        with Pool(processes = 8) as pl:
+            res = pl.map_async(partial(Task3.pi_basic, eps = self.eps), vals)
+            res = res.get()
+        return "".join(res)
+
+    @timeit
+    def mapreduce_seq(self):
+        inner_mapper1 = lambda k, d, j: pow(16, d - k, 8 * k + j) / (8 * k + j)
+        inner_reducer1 = lambda x, y: (x + y) % 1
+        inner_mapper2 = lambda k, d, j: pow(16, d - k) / (8 * k + j)
+        inner_reducer2 = lambda x,y: x + y
+
+        def mapper_sj(input_):
+            d, j = input_
+            vals1 = range(d + 1)
+            vals2 = range(d + 1, self.eps + d + 2)
+            #Series1            
+            mapped1 = map(partial(inner_mapper1, d = d, j = j), vals1)
+            reduced1 = reduce(inner_reducer1, mapped1)
+            #Series2
+            mapped2 = map(partial(inner_mapper2, d = d, j = j), vals2)
+            reduced2 = reduce(inner_reducer2, mapped2)
+            #sj
+            reduced =  reduce(inner_reducer2, [reduced1, reduced2])
+            return reduced
+        
+        def reducer_num1(x, y):
+            return  (1, x[0] * x[1] + y[0] * y[1])
+
+        def reducer_num2(x):
+            #Fixing modulo for negative
+            val = x[1] - int(x[1])
+            if val < 0:
+                val = 1 + val
+            return "%x" % int(val * 16)
+        
+
+        def mapper(x):
+            mapped = zip([x] * 4, (1, 4, 5, 6))
+            mapped = map(mapper_sj, mapped)
+            mapped = zip((4, -2, -1, -1), mapped)
+            reduced = reduce(reducer_num1, mapped)
+            #Interesting fact: after creating tuples  operation % 1 no longer works correctly
+            reduced = reducer_num2(reduced)
+            return reduced
+
+        def reducer_outer(x, y):
+            return "".join([x,y])
+
+        def mapper_outter(chunks):
+            mapped = map(mapper, chunks)
+            reduced = reduce(reducer_outer, mapped)
+            return reduced
+        
+
+        chunks = Problem3.split_list2chunks([*range(self.d -1, self.d + self.n -1)])
+        mapped = map(mapper_outter, chunks)
+        reduced = reduce(reducer_outer, mapped)
+        return reduced
+    
+    @timeit
+    def mapreduce_mp(self):
+        chunks = Problem3.split_list2chunks([*range(self.d -1, self.d + self.n -1)])
+        with Pool(processes = 8) as pl:
+            res = pl.map_async(Task3.mapper_outter, chunks)
+            mapped = res.get()
+        reduced = reduce(Task3.reducer_outer, mapped)
+        return reduced
 
 
-
-
+    
 #Task1
 #Test accuracy solution 
 # k,l = 20000, 20000
@@ -669,16 +812,41 @@ p1 = Problem1(m, (min_, max_))
 # print(x == p2.mapreduce_b_mp())
 
 
+print("Task 3")
+p3 = Problem3(int(1e3), 50)
+# p3 = Problem3(int(1e3), 4)
+x = p3.triv_seq1()
+print(x)
+print(p3.triv_seq2() == x)
+# print(p3.triv_seq4())
+print(p3.mapreduce_seq() == x)
+print(p3.mapreduce_mp() == x)
+print(p3.triv2_mp() == x)
+print(p3.triv1_mp() == x)
+
+# print(pi2(0,25))
+    
+
 print("Task 4")
 k,l,i = 200, 400, 300
 # k,l, i= 200, 60, 300
 m = np.random.randint(-4, 200,(k, l))
 n = np.random.randint(-4, 200, (l, i))
 
-p4 = Problem4(m, n)
-x = p4.triv_seq()
-print((Problem4.arr_from_dict(p4.mapreduce_seq()) == x).all())
-print((Problem4.arr_from_dict(p4.mapreduce_seq2()) == x).all())
-print((Problem4.arr_from_dict(p4.mapreduce_mp()) == x).all())
+# p4 = Problem4(m, n)
+# x = p4.triv_seq()
+# print((Problem4.arr_from_dict(p4.mapreduce_seq()) == x).all())
+# print((Problem4.arr_from_dict(p4.mapreduce_seq2()) == x).all())
+# print((Problem4.arr_from_dict(p4.mapreduce_mp()) == x).all())
 
 
+#   // Start at digit d and compute n digits
+#   return function piBBP(d, n) {
+#     // Seems to be the convention for including the leading 3
+#     d -= 1;
+#     // Shift n digits to the left of the radix point to obtain our final
+#     // result as a integer
+#     return Math.floor(
+#       16 ** n * mod(4 * S(1, d) - 2 * S(4, d) - S(5, d) - S(6, d), 1)
+#     );
+#   };

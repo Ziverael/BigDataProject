@@ -1,10 +1,9 @@
 ###MODULES###
-from functools import reduce
+from functools import reduce, partial
 from collections import defaultdict
 import re
 import numpy as np
 from itertools import product
-
 ###FUCNTIONS###
 ###TASK1###
 class Task1:
@@ -183,3 +182,102 @@ class Task4:
 
 # p1mapper = lambda x: _min <= x <= _max
 p1reducer = lambda x, y: (x[0], sum([x[1], y[1]])) 
+
+
+class Task3:
+    @staticmethod
+    def inner_mapper1(k, d, j):
+        return pow(16, d - k, 8 * k + j) / (8 * k + j)
+    
+    @staticmethod
+    def inner_reducer1(x, y):
+        return (x + y) % 1
+    
+    @staticmethod
+    def inner_mapper2(k, d, j):
+        return pow(16, d - k) / (8 * k + j)
+    
+    @staticmethod
+    def inner_reducer2(x, y):
+        return x + y
+
+    @staticmethod
+    def mapper_sj(input_, eps = 1000):
+        d, j = input_
+        vals1 = range(d + 1)
+        vals2 = range(d + 1, eps + d + 2)
+        #Series1            
+        mapped1 = map(partial(Task3.inner_mapper1, d = d, j = j), vals1)
+        reduced1 = reduce(Task3.inner_reducer1, mapped1)
+        #Series2
+        mapped2 = map(partial(Task3.inner_mapper2, d = d, j = j), vals2)
+        reduced2 = reduce(Task3.inner_reducer2, mapped2)
+        #sj
+        reduced =  reduce(Task3.inner_reducer2, [reduced1, reduced2])
+        return reduced
+    
+    @staticmethod
+    def reducer_num1(x, y):
+        return  (1, x[0] * x[1] + y[0] * y[1])
+
+    @staticmethod
+    def reducer_num2(x):
+        #Fixing modulo for negative
+        val = x[1] - int(x[1])
+        if val < 0:
+            val = 1 + val
+        return "%x" % int(val * 16)
+    
+    @staticmethod
+    def mapper(x):
+        mapped = zip([x] * 4, (1, 4, 5, 6))
+        mapped = map(Task3.mapper_sj, mapped)
+        mapped = zip((4, -2, -1, -1), mapped)
+        reduced = reduce(Task3.reducer_num1, mapped)
+        #Interesting fact: after creating tuples  operation % 1 no longer works correctly
+        reduced = Task3.reducer_num2(reduced)
+        return reduced
+
+    @staticmethod
+    def reducer_outer(x, y):
+        return "".join([x,y])
+
+    @staticmethod
+    def mapper_outter(chunks):
+        mapped = map(Task3.mapper, chunks)
+        reduced = reduce(Task3.reducer_outer, mapped)
+        return reduced
+    
+    @staticmethod
+    def pi_basic2_sj(j, d, eps = 1000):
+        series_1 = (pow(16, d - k, 8 * k + j) / (8 * k + j) for k in range(d + 1))
+        series_1 = reduce(lambda x, y: (x + y) % 1, series_1)
+        series_2 = sum(pow(16, d - k) / (8 * k + j) for k in range(d + 1, d + 2 + eps))
+        
+        return series_1 + series_2
+    
+    @staticmethod
+    def pi_basic_sj(j, digs, eps = 1000):
+        total = 0.0
+        for idx in range(digs + eps):
+            k = 8 * idx + j
+            term = pow(16, digs - idx, k) if idx < digs else pow(16, digs - idx)
+            total += term / k
+        return total 
+    
+    @staticmethod
+    def pi_basic(digits, eps = 1000):
+        digits_ = digits - 1
+        res = (
+            4 * Task3.pi_basic2_sj(1, digits_, eps) - 2 * Task3.pi_basic2_sj(4, digits_, eps) -
+            Task3.pi_basic2_sj(5, digits_, eps) - Task3.pi_basic2_sj(6, digits_, eps)
+        ) % 1
+        return "%x" % int(res * 16)
+    
+    def pi_basic1(digits, eps = 1000):
+        digits_ = digits - 1
+        res = (
+            4 * Task3.pi_basic_sj(1, digits_, eps) - 2 * Task3.pi_basic_sj(4, digits_, eps) -
+            Task3.pi_basic_sj(5, digits_, eps) - Task3.pi_basic_sj(6, digits_, eps)
+        ) % 1
+        return "%x" % int(res * 16)
