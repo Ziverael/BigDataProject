@@ -796,38 +796,38 @@ class Problem3:
 
 
     
-# #Task1
-# #Test accuracy solution 
-# k,l = 20000, 20000
-# k,l = 2000, 2000
-# # k,l = 5, 3
-# min_, max_ = 5, 200
-# # k,l = 200, 4
-# m = np.random.rand(k, l) * 500
-# # m = np.random.rand(k, l) * 1000 
-# n = np.random.rand(l, k) * 1000
-# p1 = Problem1(m, (min_, max_))
-# x = p1.triv1_seq()
-# print(x)
-# print(p1.triv2_seq() == x)
-# print(p1.triv2_mp() == x)
-# print(p1.triv1_mp() == x)
-# print(p1.mapreduce_seq() == x)
-# print(p1.mapreduce_mp() == x)
+#Task1
+#Test accuracy solution 
+k,l = 20000, 20000
+k,l = 2000, 2000
+# k,l = 5, 3
+min_, max_ = 5, 200
+# k,l = 200, 4
+m = np.random.rand(k, l) * 500
+# m = np.random.rand(k, l) * 1000 
+n = np.random.rand(l, k) * 1000
+p1 = Problem1(m, (min_, max_))
+x = p1.triv1_seq()
+print(x)
+print(p1.triv2_seq() == x)
+print(p1.triv2_mp() == x)
+print(p1.triv1_mp() == x)
+print(p1.mapreduce_seq() == x)
+print(p1.mapreduce_mp() == x)
 
-# #Task2
-# print("Task 2")
-# p2 = Problem2(f'{DATA_DIR}/Guthenberg')
-# x = p2.triv_a_seq()
-# print(x)
-# print(p2.triv_a_mp() == x)
-# print(p2.mapreduce_a_seq() == x)
-# print(p2.mapreduce_a_mp() == x)
+#Task2
+print("Task 2")
+p2 = Problem2(f'{DATA_DIR}/Guthenberg')
+x = p2.triv_a_seq()
+print(x)
+print(p2.triv_a_mp() == x)
+print(p2.mapreduce_a_seq() == x)
+print(p2.mapreduce_a_mp() == x)
 
 x = p2.triv_b_seq()
-# print(list(x.items())[:5])
-# print(x == p2.triv_b_mp())
-# print(x == p2.mapreduce_b_seq())
+print(list(x.items())[:5])
+print(x == p2.triv_b_mp())
+print(x == p2.mapreduce_b_seq())
 print(x == p2.mapreduce_b_mp())
 
 

@@ -105,6 +105,48 @@ class Task2:
     def triv_b_reducer2(kv):
         key_, val = kv
         return (key_, sum(val))
+    
+    @staticmethod
+    def add(dict_, item):
+        dict_[item] = dict_.get(item, 0) + 1
+
+    @staticmethod
+    def triv_b_fun2(dict1, dict2):
+        return {
+            key: dict1.get(key, 0) + dict2.get(key, 0)\
+            for key in set(dict1) | set(dict2)}
+    
+    @staticmethod
+    def _mapper_b(file):
+        with open(file, 'r') as book:
+            book_text = book.read()
+        corpus = Task2.prepare_corpus(book_text)
+        tokenized = Task2.tokenize(corpus)
+        return [*zip(tokenized, [1] * len(tokenized))]
+    
+    @staticmethod
+    def chunk_mapper_b(chunk):
+        mapped = map(Task2._mapper_b, chunk)
+        reduced = reduce(Task2.reducer, mapped)
+        grouped = Task2.grouping(reduced)
+        return grouped
+    
+    @staticmethod
+    def grouping(mapped):
+        dict_ = defaultdict(int)
+        for k, v in mapped:
+            dict_[k] += v
+        return dict_
+
+    @staticmethod    
+    def reducer(x, y):
+        x.extend(y)
+        return x
+    
+    def reducer2(x, y):
+        merged = {key: x.get(key, 0) + y.get(key, 0)
+          for key in set(x) | set(y)}
+        return merged
         
     
 
