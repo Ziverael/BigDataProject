@@ -832,7 +832,7 @@ print(x == p2.mapreduce_b_mp())
 
 
 print("Task 3")
-p3 = Problem3(int(1e6), 50)
+p3 = Problem3(int(1e5), 50)
 x = p3.triv_seq1()
 print(x)
 print(p3.triv_seq2() == x)
