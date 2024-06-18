@@ -1,7 +1,9 @@
 ###MODULES###
 from utils import (
     file_exists,
+    load_preprocess_image_to_numpy,
     ordEncoding,
+    save_chunks,
 )
 from models import (
     CustomModel,
@@ -10,7 +12,7 @@ from models import (
 )
 from functools import partial
 from pyspark.sql.functions import col, udf
-from pyspark.sql.types import BooleanType
+from pyspark.sql.types import BooleanType, ArrayType, FloatType
 import os
 import sys
 import logging
@@ -67,7 +69,7 @@ class LogFormatter(logging.Formatter):
 
 ###FUNCTIONS###
 udf_file_exists = udf(partial(file_exists, base = f"/"), BooleanType())
-
+udf_load_image = udf(load_preprocess_image_to_numpy, ArrayType(FloatType()))
 
 
 ###MAIN###
@@ -78,7 +80,7 @@ timer = time()
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 formatter = LogFormatter(
-    f"train[UTC:%(asctime)s][WARSAW:%(warsaw_time)s][%(levelname)s] %(message)s",
+    f"preprocessing[WARSAW:%(warsaw_time)s][%(levelname)s] %(message)s",
 datefmt = '%Y-%m-%d %H:%M:%S'
 )
 stdout_handler = logging.StreamHandler(stdout)
@@ -91,12 +93,16 @@ logger.addHandler(f_handler)
 logger.addHandler(stdout_handler)
 logger.info("Script started...")
 
-#Setup spark
-logger.debug("Starting spark session...")
+
 spark = SparkSession \
-       .builder \
-       .appName("Big Data Project") \
-       .getOrCreate()
+    .builder \
+    .appName("Big Data Project") \
+    .config("spark.executor.memory", "8g") \
+    .config("spark.driver.memory", "8g") \
+    .config("spark.driver.maxResultSize", "2g") \
+    .config("spark.memory.fraction", "0.8") \
+    .config("spark.memory.storageFraction", "0.2") \
+    .getOrCreate()
 logger.info(f"spark is running")
 
 logger.info("Loading dataset...")
@@ -142,28 +148,39 @@ bird_df.show(
 logger.debug(f"Dataset length {bird_df.count()}")
 
 #Data transformation and preprocessing in spark
-#TODO
+bird_df = bird_df.repartition(100).cache()
+bird_df = bird_df.withColumn("images", udf_load_image("filepaths"))
 logger.info("Transformed data")
 logger.debug("Ordinal encoding...")
 bird_df = ordEncoding(bird_df, "labels", "ordLabels")
 
 logger.info("Splitting data...")
-train_df = bird_df.filter(bird_df["data set"] == "train").select('filepaths', 'labels', "ordLabels")
-test_df = bird_df.filter(bird_df["data set"] == "test").select('filepaths', 'labels', "ordLabels")
-vali_df = bird_df.filter(bird_df["data set"] == "valid").select('filepaths', 'labels', "ordLabels")
+train_df = bird_df.filter(bird_df["data set"] == "train").select('filepaths', 'labels', "ordLabels", "images")
+test_df = bird_df.filter(bird_df["data set"] == "test").select('filepaths', 'labels', "ordLabels", "images")
+vali_df = bird_df.filter(bird_df["data set"] == "valid").select('filepaths', 'labels', "ordLabels", "images")
 logger.info("Data splitted")
 
 
-train_pd_df = train_df.toPandas()
-test_pd_df = test_df.toPandas()
-vali_pd_df = vali_df.toPandas()
+# train_pd_df = train_df.toPandas()
+# test_pd_df = test_df.toPandas()
+# vali_pd_df = vali_df.toPandas()
 
-logger.info("Pickling data")
-with open(f"{DATA_DIR}/train.pickle", "wb") as f:
-    pickle.dump(train_pd_df, f)
-with open(f"{DATA_DIR}/test.pickle", "wb") as f:
-    pickle.dump(test_pd_df, f)
-with open(f"{DATA_DIR}/vali.pickle", "wb") as f:
-    pickle.dump(vali_pd_df, f)
+#For test purpose
+chunk_size = 5000  # Adjust chunk size as needed
+save_chunks(train_df, chunk_size, f"{DATA_DIR}/train")
+save_chunks(test_df, chunk_size, f"{DATA_DIR}/test")
+save_chunks(vali_df, chunk_size, f"{DATA_DIR}/vali")
+# train_pd_df = train_df.toPandas().loc[:300, :]
+# test_pd_df = test_df.toPandas().loc[:300, :]
+# vali_pd_df = vali_df.toPandas().loc[:300, :]
+
+# print("Cols", train_df.columns)
+# logger.info("Pickling data")
+# with open(f"{DATA_DIR}/train.pickle", "wb") as f:
+#     pickle.dump(train_pd_df, f)
+# with open(f"{DATA_DIR}/test.pickle", "wb") as f:
+#     pickle.dump(test_pd_df, f)
+# with open(f"{DATA_DIR}/vali.pickle", "wb") as f:
+#     pickle.dump(vali_pd_df, f)
 
 logger.info("Preprocessing finished")

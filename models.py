@@ -18,6 +18,7 @@ string_io = io.StringIO()
 
 
 
+
 def load_image(filepath, label):
     #TODO it will be removed. We use it until you implement Spark transformations in preprocessing.py
     image = tf.io.read_file(filepath)
@@ -44,8 +45,9 @@ def dataframe_to_numpy(df):
     labels = df.pop('ordLabels').astype('int32').values
     filepaths = df.pop('filepaths').values
 
-    # Load all images into a NumPy array
-    images = np.array([load_image(fp, lb) for fp, lb in zip(filepaths, labels)])
+    X = np.array(pandas_df['preprocessed_image'].tolist())
+    X = X.reshape(-1, 128, 128, 1)  # Reshape to (num_samples, height, width, channels)
+    print(images)
 
     return images, labels
 
@@ -84,13 +86,16 @@ class CustomModel:
                     data_vali = pickle.load(f)
                 
                 # train_datasets = dataframe_to_dataset(data_train, batch_size=CustomModel.BATCH_SIZE)
-                train_datasets = dataframe_to_numpy(data_train)
-                valid_datasets = dataframe_to_dataset(data_vali)
+                X = np.array(pandas_df['preprocessed_image'].tolist())
+                X = X.reshape(-1, 128, 128, 1)  # Reshape to (num_samples, height, width, channels)
+                # valid_datasets = dataframe_to_dataset(data_vali)
                 # valid_datasets = dataframe_to_dataset(data_vali, batch_size=CustomModel.BATCH_SIZE)
                 
-                return train_datasets, valid_datasets
+                # return train_datasets, valid_datasets
+                return train_datasets#, valid_datasets
             
-            train_datasets, vali_dataset = make_datasets()
+            # train_datasets, vali_dataset = make_datasets()
+            train_datasets = make_datasets()
             # options = tf.data.Options()
             # options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
             # train_datasets = train_datasets.with_options(options)
@@ -143,7 +148,9 @@ class CustomModel:
         multi_worker_model.fit(x=train_datasets, epochs=3, steps_per_epoch=5)
     
     def train_model(self):
-        MirroredStrategyRunner(num_slots=1, use_gpu=False).run(self.train)
+        MirroredStrategyRunner(
+            num_slots = 1,
+            use_gpu = False).run(self.train)
 
 
 

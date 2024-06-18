@@ -2,9 +2,14 @@
 import tensorflow as tf
 from spark_tensorflow_distributor import MirroredStrategyRunner
 from pyspark.ml.feature import StringIndexer
+from PIL import Image, ImageOps
 from time import time
 from functools import wraps
 import os
+import io
+import pickle
+import numpy as np
+
 
 
 ###FUNCTIONS###
@@ -32,46 +37,6 @@ def dataframe_to_dataset(df, batch_size=32):
     ds = ds.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
     return ds
 
-
-
-
-
-def _train(
-    model,
-    train,
-    valid,
-    batch_size = 64
-    ):
-    train_datasets = dataframe_to_dataset(train_pd_df, batch_size = batch_size)
-    valid_datasets = dataframe_to_dataset(valid_pd_df, batch_size = batch_size)
-
-    options = tf.data.Options()
-    options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
-    train_datasets = train_datasets.with_options(options)
-    valid_datasets = valid_datasets.with_options(options)
-
-    # Fit the model
-    model.fit(
-        train_datasets,
-        validation_data = valid_datasets,
-        epochs = 10,
-        steps_per_epoch = len(train_pd_df) // batch_size,
-        validation_steps = len(valid_pd_df) // batch_size
-    )
-
-
-def distributed_training(
-    model,
-    train,
-    valid,
-    batch_size = 64,
-    num_slot = 2,
-    use_gpu = False
-    ):
-    strategy = MirroredStrategyRunner(
-        num_slots = num_slot,
-        use_gpu = use_gpu,
-        ).run(_train, model = model,  train = train, valid = valid, batch_size = batch_size)
 
 def file_exists(filename, base):
     return os.path.exists(os.path.join(base, filename))
@@ -106,3 +71,42 @@ def train_decorator(fun):
         return fun(*args, train_datasets=train_datasets, **kwargs)
     
     return wrapper
+
+
+def load_preprocess_image_to_numpy(filepath):
+    try:
+        with open(filepath, 'rb') as f:
+            img = Image.open(f)
+            # Preprocessing steps
+            img = ImageOps.grayscale(img)  # Convert to grayscale
+            img = img.resize((128, 128))  # Resize image to 128x128 pixels
+            img_array = np.array(img)  # Convert to numpy array
+            img_array = img_array.astype(np.float32) / 255.0  # Normalize to [0, 1]
+            return img_array.flatten().tolist()  # Flatten and convert to list for Spark
+    except Exception as e:
+        print(f"Error loading image {filepath}: {e}")
+        return None
+
+
+def save_chunks(df, chunk_size, path):
+    total_rows = df.count()
+    num_chunks = (total_rows // chunk_size) + 1
+    for i in range(num_chunks):
+        chunk_df = df.limit(chunk_size).offset(i * chunk_size)
+        chunk_pd_df = chunk_df.toPandas()
+        with open(f"{path}_chunk_{i}.pickle", "wb") as f:
+            pickle.dump(chunk_pd_df, f)
+
+
+def load_chunks(path):
+    chunks = []
+    i = 0
+    while True:
+        file_path = f"{path}_chunk_{i}.pickle"
+        if not os.path.exists(file_path):
+            break
+        with open(file_path, "rb") as f:
+            chunk = pickle.load(f)
+            chunks.append(chunk)
+        i += 1
+    return pd.concat(chunks)
