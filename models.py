@@ -3,6 +3,7 @@ import tensorflow as tf
 from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D
 from tensorflow.keras.layers import Dense, Flatten
 from tensorflow.keras.models import Model
+from tensorflow.keras import applications, optimizers
 from utils import train_decorator
 from spark_tensorflow_distributor import MirroredStrategyRunner
 from functools import wraps #TEMP
@@ -23,7 +24,7 @@ def load_image(filepath, label):
     #TODO it will be removed. We use it until you implement Spark transformations in preprocessing.py
     image = tf.io.read_file(filepath)
     image = tf.image.decode_jpeg(image, channels=1)
-    image = tf.image.resize(image, [244, 244])
+    image = tf.image.resize(image, [224, 224])
     image /= 255.0  # Normalize to [0,1]
     return image, label
 
@@ -131,7 +132,7 @@ class CustomModel:
     def train(self, train_datasets):
         def build_and_compile_cnn_model():
             model = tf.keras.Sequential([
-                tf.keras.layers.Conv2D(32, 3, activation='relu', input_shape=(244, 244, 1)),
+                tf.keras.layers.Conv2D(32, 3, activation='relu', input_shape=(224, 224, 1)),
                 tf.keras.layers.MaxPooling2D(),
                 tf.keras.layers.Flatten(),
                 tf.keras.layers.Dense(64, activation='relu'),
@@ -306,4 +307,93 @@ class CustomModel:
 #             tf.keras.layers.Dense(10, activation='softmax'),
 #         ])
 #         self.model = mod
-    
+
+
+class InceptionV3_custom(CustomModel):
+    def __init__(self, input_size = (224, 224, 3)):
+        super().__init__()
+        base_model = applications.InceptionV3(weights='imagenet', 
+                                include_top=False, 
+                                input_shape=(224, 224,3))
+        base_model.trainable = True
+        add_model = Sequential()
+        add_model.add(base_model)
+        add_model.add(GlobalAveragePooling2D())
+        add_model.add(Dropout(0.15))
+        add_model.add(Dense(nclass, 
+                            activation='softmax'))
+        mod = add_model
+        mod.compile(loss='categorical_crossentropy', 
+                    optimizer=optimizers.SGD(lr=1e-4, 
+                                            momentum=0.9),
+                    metrics=['accuracy'])
+        self.model = mod
+
+class InceptionV3_custom_non_train(CustomModel):
+    def __init__(self, input_size = (224, 224, 3)):
+        super().__init__()
+        base_model = applications.InceptionV3(weights='imagenet', 
+                                include_top=False, 
+                                input_shape=(224, 224,3))
+        base_model.trainable = False
+        add_model = Sequential()
+        add_model.add(base_model)
+        add_model.add(GlobalAveragePooling2D())
+        add_model.add(Dropout(0.15))
+        add_model.add(Dense(nclass, 
+                            activation='softmax'))
+        mod = add_model
+        mod.compile(loss='categorical_crossentropy', 
+                    optimizer=optimizers.SGD(lr=1e-4, 
+                                            momentum=0.9),
+                    metrics=['accuracy'])
+        self.model = mod
+
+
+
+class CNN_from_scratch(CustomModel):
+    def __init__(self,input_size = (224,224,3)):
+        super().__init__()
+        cnn = models.Sequential()
+        cnn.add(layers.Conv2D(128, (3, 3), activation='relu', input_shape=(224, 224, 3)))
+        cnn.add(layers.BatchNormalization())
+        cnn.add(layers.Conv2D(64, (3, 3), activation='relu', input_shape=(224, 224, 3)))
+        cnn.add(layers.BatchNormalization())
+        cnn.add(layers.MaxPooling2D((3, 3)))
+        cnn.add(layers.Dropout(0.25))
+
+        cnn.add(layers.Conv2D(64, (3, 3), activation='relu', input_shape=(224, 224, 3)))
+        cnn.add(layers.BatchNormalization())
+        cnn.add(layers.Conv2D(128, (3, 3), activation='relu', input_shape=(224, 224, 3)))
+        cnn.add(layers.Dropout(0.4))
+        cnn.add(layers.Conv2D(128, (3, 3), activation='relu', input_shape=(224, 224, 3)))
+        cnn.add(layers.BatchNormalization())
+        cnn.add(layers.Conv2D(32, (3, 3), activation='relu', input_shape=(224, 224, 3)))
+        cnn.add(layers.BatchNormalization())
+        cnn.add(layers.MaxPooling2D((2, 2)))
+        cnn.add(layers.Dropout(0.25))
+
+
+        cnn.add(layers.Dense(240,activation='relu'))
+        cnn.add(layers.Dropout(0.2))
+        cnn.add(layers.Dense(60,activation='relu'))
+
+        cnn.add(layers.Flatten())
+        cnn.add(layers.Dense(30,activation = 'softmax'))
+        self.model = cnn
+
+
+class CNN_base(CustomModel):
+    def __init__(self,input_size = (224,224,3)):
+        super().__init__()
+        cnn = models.Sequential()
+        cnn.add(layers.Conv2D(128, (3, 3), activation='relu', input_shape=(224, 224, 3)))
+        cnn.add(layers.BatchNormalization())
+        cnn.add(layers.Dropout(0.25))
+        cnn.add(layers.Conv2D(64, (3, 3), activation='relu', input_shape=(224, 224, 3)))
+        cnn.add(layers.BatchNormalization())
+        cnn.add(layers.MaxPooling2D((3, 3)))
+        cnn.add(layers.Dropout(0.25))
+        cnn.add(layers.Flatten())
+        cnn.add(layers.Dense(30,activation = 'softmax'))
+        self.model = cnn
