@@ -324,7 +324,7 @@ class InceptionV3_custom(CustomModel):
                             activation='softmax'))
         mod = add_model
         mod.compile(loss='categorical_crossentropy', 
-                    optimizer=optimizers.SGD(lr=1e-4, 
+                    optimizer=optimizers.SGD(learning_rate=1e-4, 
                                             momentum=0.9),
                     metrics=['accuracy'])
         self.model = mod
@@ -344,7 +344,7 @@ class InceptionV3_custom_non_train(CustomModel):
                             activation='softmax'))
         mod = add_model
         mod.compile(loss='categorical_crossentropy', 
-                    optimizer=optimizers.SGD(lr=1e-4, 
+                    optimizer=optimizers.SGD(learning_rate=1e-4, 
                                             momentum=0.9),
                     metrics=['accuracy'])
         self.model = mod
