@@ -1,6 +1,10 @@
 ###MODULES###
 from models import (
     CustomModel,
+    InceptionV3_custom,
+    InceptionV3_custom_non_train,
+    CNN_base,
+    CNN_from_scratch,
 #   CustomCNN,
 #   VGG16  
 )
@@ -92,6 +96,10 @@ logger.info(f"spark is running")
 
 for name, m in {
     "CustomCNN" : CustomModel,
+    "InceptionV3_custom" : InceptionV3_custom,
+    "InceptionV3_custom_non_train" : InceptionV3_custom_non_train,
+    "CNN_base" : CNN_base,
+    "CNN_from_scratch" : CNN_from_scratch,
     # "CustomCNN" : CustomCNN,
     # "VGG16" : VGG16
     }.items():
